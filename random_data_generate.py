@@ -8,7 +8,7 @@ num_counties   = 10
 num_voters = 1000
 distribution = 'uniform-voters-two-horse-race'
 
-def datagen(num_candidates, num_counties, num_votes, distribution):
+def datagen(num_candidates, num_counties, num_voters, distribution):
     dataset = {}
     if distribution == 'uniform-voters-uniform-candidates':
 
@@ -16,11 +16,11 @@ def datagen(num_candidates, num_counties, num_votes, distribution):
         for i in range(num_voters):
             candidate_list = range(1, num_candidates+1)
             random.shuffle(candidate_list)
-            dataset[i] = {'prefs' : candidate_list, 'county' : random.randint(1, num_counties)}
+            dataset[i] = {'prefs' : candidate_list, 'county' : random.randint(0, num_counties-1)}
 
 
 
-    elif distribution == 'uniform-voters-two-horse-race':
+    elif distribution == 'uniform-voters-non-uniform-candidates':
         candidate_list = range(1, num_candidates+1)
 
         if len(candidate_list) > 2 and len(candidate_list) < 10:
@@ -32,14 +32,14 @@ def datagen(num_candidates, num_counties, num_votes, distribution):
                     top_choice = random.randint(1,2)
                     candidate_list.pop(top_choice-1)
                     random.shuffle(candidate_list)
-                    dataset[i] = {'prefs' : [top_choice] + candidate_list, 'county' : random.randint(1, num_counties)}
+                    dataset[i] = {'prefs' : [top_choice] + candidate_list, 'county' : random.randint(0, num_counties-1)}
 
                 else:
                     top_choice = random.randint(3,num_candidates)
                     candidate_list.pop(top_choice-1)
                     random.shuffle(candidate_list)
 
-                    dataset[i] = {'prefs' : [top_choice] + candidate_list, 'county' : random.randint(1, num_counties)}
+                    dataset[i] = {'prefs' : [top_choice] + candidate_list, 'county' : random.randint(0, num_counties-1)}
 
         else:
             print ('Too many candidates for this option :(')
@@ -51,9 +51,7 @@ def datagen(num_candidates, num_counties, num_votes, distribution):
         for i in range(num_voters):
             candidate_list = range(1, num_candidates+1)
             random.shuffle(candidate_list)
-            county =  min(int(round(np.random.normal(num_counties / 2.0, num_counties / 6.0))) , num_counties)
-            print county
-            #quit()
+            county =  max(min(int(round(np.random.normal(num_counties / 2.0, num_counties / 6.0))) , num_counties - 1), 0)
             dataset[i] = {'prefs' : candidate_list, 'county' : county}
 
 
@@ -62,7 +60,7 @@ def datagen(num_candidates, num_counties, num_votes, distribution):
         if len(candidate_list) > 2 and len(candidate_list) < 10:
             #voters prefer a the first two candidates with igh probability and other candidates with low probability.  preference order given by shuffling list by first two.
             for i in range(num_voters):
-                county =  min(int(round(np.random.normal(num_counties / 2.0, num_counties / 6.0))) , num_counties)
+                county =  max(min(int(round(np.random.normal(num_counties / 2.0, num_counties / 6.0))) , num_counties - 1), 0)
                 candidate_list = range(1, num_candidates+1)
                 non_libertarian = random.random()
                 if non_libertarian >= ((len(candidate_list) - 2) * 0.05):
@@ -115,6 +113,7 @@ def summaryStats(dataset, num_candidates=4, num_counties=10):
 
 def main():
     dataset = datagen(5, 10, 10000, 'non-uniform-voters-non-uniform-candidates')
+
     summaryStats(dataset, 5, 10)
 
 
