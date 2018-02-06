@@ -3,8 +3,8 @@ import random_data_generate
 import numpy as np
 
 
-num_candidates = 4
-def popular_vote(dataset):
+
+def popular_vote(dataset, num_candidates=4):
     top_prefs = []
     pref_arr = np.zeros(num_candidates)
     for voter_key, voter_pref in dataset.iteritems():
@@ -38,7 +38,7 @@ def electoral_college(dataset, num_candidates, num_counties):
     return electoral_votes.index(winner) + 1
 
 
-def quadratic_vote(dataset):
+def quadratic_vote(dataset, num_candidates):
     candidate_votes = np.zeros(num_candidates)
     for voter_key, voter_pref in dataset.iteritems():
         prefs = voter_pref['prefs']
@@ -71,7 +71,7 @@ def main():
     print 'Popular vote winner:  ' + str(popular_vote(dataset))
     print 'Electoral college winner:  ' + str(electoral_college(dataset, num_candidates, num_counties))
     print 'Point System winner:  ' + str(point_system(dataset, num_candidates))
-    print 'Quadratic vote winner:  ' + str(quadratic_vote(dataset))
+    print 'Quadratic vote winner:  ' + str(quadratic_vote(dataset, num_candidates))
     print '-----------------------------'
 
     random_data_generate.summaryStats(dataset, num_candidates, num_counties)
