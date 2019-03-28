@@ -1,81 +1,151 @@
 import random
-import random_data_generate
 import numpy as np
+import csv
 
+def gen_dataset(filename):
+    voters = []
+    with open(filename, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        next(reader)
+        for row in reader:
+            voter = {}
+            time = row.pop(0)
+            ordered_pref = row[0:5]
+            del row[0:5]
+            voter['order'] = ordered_pref
+            approved = [x.split(';') for x in row][0]
+            voter['approved'] = approved
+            voters.append(voter)
 
+    return voters
 
-def popular_vote(dataset, num_candidates=4):
+def majority_vote(dataset, num_candidates=5):
+    #don't think we need this, but keeping it in now just in case.  This is each person's top choice as a list
     top_prefs = []
-    pref_arr = np.zeros(num_candidates)
-    for voter_key, voter_pref in dataset.iteritems():
-        top_prefs.append(voter_pref['prefs'][0])
-        pref_arr[voter_pref['prefs'][0] - 1] += 1
+    #counts the number of votes each candidate receives
+    vote_counter = np.zeros(num_candidates)
 
-    winner = max(set(top_prefs), key=top_prefs.count)
-    return winner
+    for voter in dataset:
+        order = voter['order']
+        top_choice = order.index('Rank 1 (most preferred)')
+        top_prefs.append(top_choice)
+        vote_counter[top_choice] += 1
 
-def electoral_college(dataset, num_candidates, num_counties):
-    county_votes = {}
-    for i in range(0, num_counties):
-        county_votes[i] = []
+    vote_weight = max(vote_counter)
+    winners, = np.where(vote_counter == vote_weight)
 
-    electoral_votes = np.zeros(num_candidates)
-
-    for voter_key, voter_pref in dataset.iteritems():
-        county_votes[voter_pref['county']].append(voter_pref['prefs'][0])
-
-    for county, votes in county_votes.iteritems():
-
-        if len(votes) > 0 :
-            county_winner = max(set(votes), key=votes.count)
-            electoral_votes[county_winner - 1] += len(votes)
+    return winners, vote_counter
 
 
+def polynomial_vote(dataset, num_candidates = 5, exponent=2):
+    #counts the number of votes each candidate receives
+    vote_counter = np.zeros(num_candidates)
 
-    electoral_votes = list(electoral_votes)
-    winner = max(electoral_votes)
+    for voter in dataset:
+        order = voter['order']
 
-    return electoral_votes.index(winner) + 1
+        for idx, rank in enumerate(order):
+            if rank == 'Rank 1 (most preferred)':
+                vote_counter[idx] += ((num_candidates - 1) ** exponent)
+            elif rank == 'Rank 2':
+                vote_counter[idx] += ((num_candidates - 2) ** exponent)
+            elif rank == 'Rank 3':
+                vote_counter[idx] += ((num_candidates - 3) ** exponent)
+            elif rank == 'Rank 4':
+                vote_counter[idx] += ((num_candidates - 4) ** exponent)
+            elif rank == 'Rank 5 (Least preferred)':
+                vote_counter[idx] += 0
+            else:
+                print "Invalid ranking"
+                quit()
 
+    vote_weight = max(vote_counter)
+    winners, = np.where(vote_counter == vote_weight)
 
-def quadratic_vote(dataset, num_candidates):
-    candidate_votes = np.zeros(num_candidates)
-    for voter_key, voter_pref in dataset.iteritems():
-        prefs = voter_pref['prefs']
-        for i in range(len(prefs)):
-            candidate_votes[prefs[i] - 1] += (num_candidates - i) ** 2
-    candidate_votes = list(candidate_votes)
-    winner = max(candidate_votes)
-    return candidate_votes.index(winner) + 1
-
-
-def point_system(dataset, num_candidates):
-    candidate_votes = np.zeros(num_candidates)
-    for voter_key, voter_pref in dataset.iteritems():
-        prefs = voter_pref['prefs']
-        for i in range(len(prefs)):
-            candidate_votes[prefs[i] - 1] += num_candidates - i
-    candidate_votes = list(candidate_votes)
-    winner = max(candidate_votes)
-    return candidate_votes.index(winner) + 1
+    return winners, vote_counter
 
 
-def main():
-    num_candidates = 4
-    num_counties = 20
-    num_voters = 10000
-    vote_distribution = 'uniform-voters-uniform-candidates'
-    #random_data_generate has parameters: num_candidates, num_counties, num_voters
-    dataset= random_data_generate.datagen(num_candidates, num_counties, num_voters, vote_distribution)
+def borda(dataset, num_candidates):
+    return polynomial_vote(dataset, num_candidates, exponent=1)
 
-    print 'Popular vote winner:  ' + str(popular_vote(dataset))
-    print 'Electoral college winner:  ' + str(electoral_college(dataset, num_candidates, num_counties))
-    print 'Point System winner:  ' + str(point_system(dataset, num_candidates))
-    print 'Quadratic vote winner:  ' + str(quadratic_vote(dataset, num_candidates))
-    print '-----------------------------'
 
-    random_data_generate.summaryStats(dataset, num_candidates, num_counties)
+def irv(dataset, num_candidates):
+    options = ['Bring back Mordechai', 'Clear the horde', 'Dimmadome', 'Space captains', 'Take the money']
+    remaining = np.ones(num_candidates)
+    remaining_candidates = range(num_candidates)
+    voter_lists = []
+    #for each voter, create ordered list of outcomes
+    for voter in dataset:
+        ranks = voter['order']
+        voter_lists.append([ranks.index('Rank 1 (most preferred)'), ranks.index('Rank 2'), ranks.index('Rank 3'), ranks.index('Rank 4'), ranks.index('Rank 5 (Least preferred)') ])
+
+    while(len(remaining_candidates) > 1):
+        top_votes = [0] * num_candidates
+        for voter in voter_lists:
+                top_votes[voter[0]] += 1
+        tot_votes = [opt for i, opt in enumerate(top_votes) if remaining[i] == 1]
+        least_votes = min(tot_votes)
+
+        loser_idx_sm = tot_votes.index(least_votes)
+        removed = -1
+
+        for i in range(num_candidates):
+            if (remaining[i] == 1) and (top_votes[i] == least_votes):
+                remaining[i] = 0
+                removed = i
+                break
+            else:
+                pass
+
+        del remaining_candidates[loser_idx_sm]
+
+        for voter in voter_lists:
+            idx = voter.index(removed)
+            del voter[idx]
+
+    winners, = np.where(remaining == 1)
+
+    return winners
+
+def veto(dataset, num_candidates):
+    options = {'Bring back Mordechai': 0, 'Clear the horde':0, 'Dimmadome':0, 'Space captains':0, 'Take the money':0}
+    for voter in dataset:
+        approved = voter['approved']
+
+        for option in approved:
+            if option in options.keys():
+                options[option] += 1
+
+    max_approvals = max(options.values())
+
+    winners = [key for key in options.keys() if (options[key] == max_approvals)]
+
+    return [winners, options]
+
+def main(filename):
+    num_candidates = 5
+    dataset = gen_dataset(filename)
+    options_by_name = ['Bring back Mordechai','Clear the horde','Dimmadome','Space captains','Take the money']
+
+    print '---------------------------------------------------------'
+    [majority_winner, score_majority] = majority_vote(dataset)
+    print 'Majority vote winner(s):\t' + str([options_by_name[winner] for winner in majority_winner])
+
+    [polynomial_winner, score_poly] = polynomial_vote(dataset, num_candidates)
+    print 'Polynomial vote winner(s):\t' + str([options_by_name[winner] for winner in polynomial_winner])
+
+    [borda_winner, score_borda] = borda(dataset, num_candidates)
+    print 'Borda winner(s):\t\t' + str([options_by_name[winner] for winner in borda_winner])
+
+    [veto_winners, approvals] = veto(dataset, num_candidates)
+    print 'Veto winner(s):\t\t\t' + str(veto_winners)
+
+    irv_winners = irv(dataset, num_candidates)
+    print 'Instant runoff winner(s):\t' + str([options_by_name[winner] for winner in irv_winners])
+    print '---------------------------------------------------------'
+
 
 
 if __name__ == '__main__':
-    main()
+    filename = 'LuckBladeWish.csv'
+    main(filename)
